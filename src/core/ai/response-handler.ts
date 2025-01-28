@@ -18,11 +18,42 @@ export class ResponseHandler {
       // Balance JSON structure
       jsonStr = this.balanceJsonStructure(jsonStr);
 
-      return JSON.parse(jsonStr);
+      const parsedSpec = JSON.parse(jsonStr);
+      return this.normalizeSpec(parsedSpec);
     } catch (error) {
       console.error("Enhanced parsing failed. Salvaging partial data...");
       return this.salvageEssentialFields(response);
     }
+  }
+
+  // In response-handler.ts
+  private static normalizeSpec(rawSpec: any) {
+    // Enforce monorepo structure when type=monorepo
+    if (rawSpec.type === "monorepo") {
+      rawSpec.files = {
+        ...rawSpec.files,
+        "turbo.json": rawSpec.files?.["turbo.json"] || {
+          pipeline: {
+            build: { dependsOn: ["^build"] },
+            dev: { cache: false },
+          },
+        },
+        ".npmrc": "shamefully-hoist=true",
+      };
+
+      // Add mandatory monorepo directories
+      if (!rawSpec.files?.["apps/web/package.json"]) {
+        rawSpec.files["apps/web/package.json"] = {
+          name: "web",
+          dependencies: {
+            next: "^14.1.0",
+            react: "^18.2.0",
+            "react-dom": "^18.2.0",
+          },
+        };
+      }
+    }
+    return rawSpec;
   }
 
   private static balanceJsonStructure(jsonStr: string): string {
