@@ -1,5 +1,5 @@
 Hook triggered
 Message file: .git/COMMIT_EDITMSG
 Captured Git username: Starkprince
-Captured message: some small change 
-Logged commit: 1839aa3
+Captured message: initial setup for generating prompt 
+Logged commit: 

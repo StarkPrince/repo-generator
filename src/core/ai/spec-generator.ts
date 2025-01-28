@@ -1,19 +1,14 @@
-// src/core/ai/spec-generator.ts
 import { ProjectSpec, ProjectSpecSchema } from "../models/project-spec";
 import { LLMClient } from "./llm-client";
 
 export class SpecGenerator {
   private readonly SYSTEM_PROMPT = `
-    You are an expert project generator. Analyze the user request and output:
-    - Framework detection
-    - Architecture decisions
-    - Required dependencies
-    - File structure
-    - Build configuration
-    Output VALID JSON only using this schema: ${JSON.stringify(
-      ProjectSpecSchema.shape
-    )}
-  `;
+  You are a project specification generator. The user's prompt describes a project. Your task is to respond with a **VALID JSON OBJECT** that conforms to this schema and nothing else:
+
+  ${JSON.stringify(ProjectSpecSchema.shape)}
+
+  DO NOT include explanations, narratives, or HTML markup. Respond exclusively with the JSON object.
+`;
 
   constructor(private llm: LLMClient) {}
 
@@ -27,6 +22,24 @@ export class SpecGenerator {
       jsonMode: true,
     });
 
-    return ProjectSpecSchema.parse(response);
+    try {
+      return ProjectSpecSchema.parse(JSON.parse(response));
+    } catch (parseError) {
+      console.error("JSON Parsing Error:", parseError);
+
+      const jsonMatch = response.match(/({.*})/s);
+
+      if (jsonMatch) {
+        try {
+          const jsonContent = jsonMatch[1].trim();
+          console.log("Extracted JSON:", jsonContent);
+          return ProjectSpecSchema.parse(JSON.parse(jsonContent));
+        } catch (extractionError) {
+          console.error("Extraction Error:", extractionError);
+        }
+      }
+
+      throw new Error("Invalid response from AI. Expected valid JSON.");
+    }
   }
 }

@@ -6,48 +6,22 @@ async function generateProjectStructure(basePath: string, structure: any) {
     const fullPath = path.join(basePath, name);
     if (typeof content === "string") {
       await fs.outputFile(fullPath, content);
+    } else if (typeof content === "object") {
+      await fs.outputFile(fullPath, JSON.stringify(content, null, 2));
     } else {
-      await fs.ensureDir(fullPath);
-      await generateProjectStructure(fullPath, content);
+      throw new Error(`Unsupported file content type for ${name}`);
     }
   }
 }
 
 export async function generateProject(projectSpec: any) {
   const basePath = path.resolve(process.cwd(), "generated-project");
-  const structure = {
-    src: {
-      ...(projectSpec.type === "frontend"
-        ? {
-            "App.js": `import React from 'react';\nexport default function App() { return <div>Hello World</div>; }`,
-          }
-        : {}),
-      ...(projectSpec.type === "backend"
-        ? {
-            "index.js": `const express = require('express');\nconst app = express();\napp.listen(3000, () => console.log('Server running'));`,
-          }
-        : {}),
-    },
-    "package.json": JSON.stringify(
-      {
-        name: "generated-project",
-        version: "1.0.0",
-        scripts: {
-          start: projectSpec.type === "backend" ? "node src/index.js" : "vite",
-        },
-        dependencies: projectSpec.dependencies || [],
-      },
-      null,
-      2
-    ),
-  };
-
-  await generateProjectStructure(basePath, structure);
+  await generateProjectStructure(basePath, projectSpec.files);
   console.log("Project generated at", basePath);
 
-  // Dynamically import dependencies and install them
+  // Install dependencies
   const npmInstall = await import("execa");
-  await npmInstall.execa("npm", ["install", ...projectSpec.dependencies], {
+  await npmInstall.execa(projectSpec.packageManager, ["install"], {
     cwd: basePath,
     stdio: "inherit",
   });
