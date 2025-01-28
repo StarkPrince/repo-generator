@@ -1,0 +1,17 @@
+/node_modules
+/dist
+.env
+package-lock.json
+.nyc_output
+combined.log
+
+get-pip.py
+/env
+rough.py
+testResult.txt
+oauth.ts
+postman/
+progress.json
+hook.log
+progress.html
+generated-projects/
