@@ -1,5 +1,5 @@
 Hook triggered
 Message file: .git/COMMIT_EDITMSG
 Captured Git username: Starkprince
-Captured message: handling the project creation graciously 
-Logged commit: 9eb9ee7
+Captured message: monorepo cases handled 
+Logged commit: 2a43b10

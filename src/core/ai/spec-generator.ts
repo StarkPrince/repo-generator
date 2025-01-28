@@ -4,87 +4,111 @@ import { ResponseHandler } from "./response-handler";
 
 // src/core/ai/spec-generator.ts
 export class SpecGenerator {
-  private readonly SYSTEM_PROMPT = `You MUST generate COMPLETE project specs with:
-  1. Modern Tech Stack: Use latest versions of:
-    - Next.js 14+ with App Router
-    - TypeScript 5.3+
-    - Turborepo for monorepos
-    - tRPC/GraphQL for API
-    - Tailwind CSS + shadcn/ui
-    - Prisma + Postgres / MongoDB + Mongoose
-    - React Server Components
+  private readonly SYSTEM_PROMPT = `You are an AI Project Architect. Generate COMPLETE project specs based on these guidelines:
+    # Technology Selection Framework
+    Analyze the user's needs to determine optimal choices:
+    1. Frontend: Choose between React/Next.js, Vue/Nuxt, Svelte/SvelteKit, Angular based on:
+      - Complex SPAs → React/Next.js
+      - Lightweight apps → Vue/Svelte
+      - Enterprise → Angular
+      - SEO needs → Next.js/Nuxt
 
-  2. Monorepo Structure:
+    2. Backend: Select based on requirements:
+      - REST API → Express/Fastify (Node), Flask/FastAPI (Python)
+      - Real-time → Socket.io/WebSockets
+      - Microservices → Go/NestJS
+      - Serverless → AWS Lambda/Cloudflare Workers
+
+    3. Database: SQL vs NoSQL decision:
+      - Relational data → PostgreSQL/MySQL
+      - Flexible schema → MongoDB/Firestore
+      - High performance → Redis
+      - Full-text search → Elasticsearch
+
+    4. Monorepo Tools:
+      - JavaScript → Turborepo/Nx
+      - Polyglot → Bazel
+
+    5. Styling: Tailwind CSS, CSS Modules, Sass, or CSS-in-JS based on project size
+
+    # Structure Templates
+    Respond with JSON matching this schema:
     {
-      "type": "monorepo", ["frontend", "backend", "fullstack", "monorepo"]
-      "workspaces": ["apps/*", "packages/*"],
+      "name": "<kebab-case-name>",
+      "type": "<frontend|backend|fullstack|monorepo>",
+      "stack": {
+        "frontend": {"framework": "...", "styling": "..."},
+        "backend": {"framework": "...", "orm": "..."},
+        "database": {"type": "...", "migrationTool": "..."}
+      },
+      "packageManager": "<npm|yarn|pnpm>",
+      "workspaces": ["apps/*", "packages/*"], // for monorepos
       "files": {
-        "apps/web/...": "...",
-        "packages/config/...": "...",
-        "packages/db/...": "..."
+        "<path>": "<content>",
+        "docker-compose.yml": "...",
+        "package.json": {
+          "scripts": {"dev": "...", "build": "..."},
+          "dependencies": {...},
+          "devDependencies": {...}
+        }
       }
     }
 
-  3. Full Production-Ready Example:
+    # Critical Generation Rules
+    1. Contextual Inference:
+      - If user mentions "real-time", add WebSocket/Socket.io
+      - For "serverless", include infrastructure-as-code (AWS SAM/Serverless Framework)
+      - "Data-heavy" → Add Redis cache layer
+      - "Microservices" → Include Docker + Kubernetes configs
+
+    2. File Requirements:
+      - {({ type }) =>
+        type === "monorepo"
+          ? "turbo.json/nx.json + .npmrc"
+          : "Standard project files"}
+      - CI/CD: GitHub Actions (.github/workflows) or CircleCI
+      - Environment templates (.env.example)
+      - TypeScript config (tsconfig.json) with path aliases
+
+    3. Validation Safeguards:
+      - Escape ALL JSON special characters
+      - Verify with JSONLint before responding
+      - Ensure package.json in every workspace (monorepo)
+      - Include database connection examples if needed
+
+    # Example Responses
+    1. E-commerce Monorepo:
     {
-      "name": "travel-agent-platform",
-      "type": "monorepo", // ["frontend", "backend", "fullstack", "monorepo"],
-      "framework": "nextjs",
-      "packageManager": "pnpm",
+      "name": "ecommerce-platform",
+      "type": "monorepo",
+      "stack": {
+        "frontend": {"framework": "Next.js", "styling": "Tailwind + shadcn"},
+        "backend": {"framework": "NestJS", "orm": "Prisma"},
+        "database": {"type": "PostgreSQL", "migrationTool": "Prisma"}
+      },
       "files": {
         "apps/web/package.json": {
-          "name": "web",
-          "dependencies": {
-            "next": "^14.1.0",
-            "@trpc/react-query": "^11.0.0",
-            "zod": "^3.22.0"
-          }
+          "dependencies": {"next": "^14", "@tanstack/react-query": "^5"}
         },
-        "packages/db/package.json": {
-          "name": "db",
-          "dependencies": {
-            "prisma": "^5.8.0",
-            "@types/node": "^20.0.0"
-          }
-        },
-        "turbo.json": {
-          "pipeline": {
-            "build": {"dependsOn": ["^build"]}
-          }
-        }
-      },
-      "scripts": {
-        "dev": "turbo dev",
-        "build": "turbo build"
-      },
-      "dependencies": {
-        "react": "^18.2.0",
-        "typescript": "^5.3.0"
+        "packages/db/schema.prisma": "..."
       }
     }
 
-  CRITICAL RULES:
-  1. Required Files:
-    - turbo.json for monorepo management
-    - .npmrc (shamefully-hoist=true)
-    - Multiple workspace package.json files
-    - Dockerfile + compose.yaml for services
-    - CI/CD configs (github-actions/*)
+    2. Real-Time Dashboard:
+    {
+      "name": "realtime-dashboard",
+      "type": "fullstack",
+      "stack": {
+        "frontend": {"framework": "React + Vite", "styling": "CSS Modules"},
+        "backend": {"framework": "Express + Socket.io"},
+        "database": {"type": "Redis", "migrationTool": null}
+      },
+      "files": {
+        "server/sockets.js": "// WebSocket implementation..."
+      }
+    }
 
-  2. Structure Must Include:
-    - apps/web (Next.js 14+)
-    - apps/mobile (Expo if needed)
-    - packages/config (shared ESLint/TS)
-    - packages/ui (component library)
-    - packages/db (Prisma schema)
-
-  3. Validation Requirements:
-    - Escape ALL double quotes in file content
-    - Verify JSON validity using JSONLint
-    - Include BOTH frontend and backend services
-    - Add proper TypeScript path aliases
-
-  Respond ONLY with valid JSON using this exact structure. Include ALL closing braces/brakets.`;
+    Respond ONLY with valid JSON using this exact structure. Include ALL closing braces/brackets.`;
 
   constructor(private llm: LLMClient) {}
 
@@ -98,8 +122,6 @@ export class SpecGenerator {
         temperature: 0.1,
         jsonMode: true,
       });
-
-      console.log("Response:", response);
 
       return ResponseHandler.parseResponse(response);
     } catch (error) {
