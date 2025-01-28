@@ -1,5 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
+import { ProjectSpec } from "../../core/models/project-spec";
 
 async function generateProjectStructure(basePath: string, structure: any) {
   for (const [name, content] of Object.entries(structure)) {
@@ -13,16 +14,20 @@ async function generateProjectStructure(basePath: string, structure: any) {
     }
   }
 }
-
-export async function generateProject(projectSpec: any) {
+export async function generateProject(projectSpec: ProjectSpec) {
   const basePath = path.resolve(process.cwd(), "generated-project");
-  await generateProjectStructure(basePath, projectSpec.files);
-  console.log("Project generated at", basePath);
 
-  // Install dependencies
-  const npmInstall = await import("execa");
-  await npmInstall.execa(projectSpec.packageManager, ["install"], {
-    cwd: basePath,
-    stdio: "inherit",
-  });
+  if (projectSpec.files && typeof projectSpec.files === "object") {
+    for (const [filePath, fileContent] of Object.entries(projectSpec.files)) {
+      const fullPath = path.join(basePath, filePath);
+
+      if (typeof fileContent === "string") {
+        await fs.outputFile(fullPath, fileContent);
+      } else {
+        await fs.outputFile(fullPath, JSON.stringify(fileContent, null, 2));
+      }
+    }
+  }
+
+  console.log("Project generated at", basePath);
 }

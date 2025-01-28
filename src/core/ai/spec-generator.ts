@@ -1,45 +1,48 @@
-import { ProjectSpec, ProjectSpecSchema } from "../models/project-spec";
+// src/core/ai/spec-generator.ts
 import { LLMClient } from "./llm-client";
+import { ResponseHandler } from "./response-handler";
 
+// src/core/ai/spec-generator.ts
 export class SpecGenerator {
-  private readonly SYSTEM_PROMPT = `
-  You are a project specification generator. The user's prompt describes a project. Your task is to respond with a **VALID JSON OBJECT** that conforms to this schema and nothing else:
+  private readonly SYSTEM_PROMPT = `You are a project specification generator. First think about the project structure, then output a valid JSON object. Your response must have this exact structure:
 
-  ${JSON.stringify(ProjectSpecSchema.shape)}
+  1. First, your thinking wrapped in <think></think> tags
+  2. Then, a complete JSON object with this structure:
+  {
+    "name": "project-name",
+    "type": "frontend|backend|fullstack",
+    "framework": "framework-name",
+    "packageManager": "npm|yarn|pnpm",
+    "dependencies": {
+      "dependency1": "version"
+    },
+    "files": {
+      "filepath": "content"
+    }
+  }
 
-  DO NOT include explanations, narratives, or HTML markup. Respond exclusively with the JSON object.
-`;
+  Important: Always complete your thinking and output the complete JSON object.`;
 
   constructor(private llm: LLMClient) {}
 
-  async generateSpec(prompt: string): Promise<ProjectSpec> {
-    const response = await this.llm.chatCompletion({
-      messages: [
-        { role: "system", content: this.SYSTEM_PROMPT },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.2,
-      jsonMode: true,
-    });
-
+  async generateSpec(prompt: string): Promise<any> {
     try {
-      return ProjectSpecSchema.parse(JSON.parse(response));
-    } catch (parseError) {
-      console.error("JSON Parsing Error:", parseError);
+      const response = await this.llm.chatCompletion({
+        messages: [
+          { role: "system", content: this.SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: `Generate a project specification for: ${prompt}. Make sure to complete your thinking and include the full JSON object.`,
+          },
+        ],
+        temperature: 0.1,
+        jsonMode: true,
+      });
 
-      const jsonMatch = response.match(/({.*})/s);
-
-      if (jsonMatch) {
-        try {
-          const jsonContent = jsonMatch[1].trim();
-          console.log("Extracted JSON:", jsonContent);
-          return ProjectSpecSchema.parse(JSON.parse(jsonContent));
-        } catch (extractionError) {
-          console.error("Extraction Error:", extractionError);
-        }
-      }
-
-      throw new Error("Invalid response from AI. Expected valid JSON.");
+      return ResponseHandler.parseResponse(response);
+    } catch (error: any) {
+      console.error("Error in generateSpec:", error);
+      throw error;
     }
   }
 }
