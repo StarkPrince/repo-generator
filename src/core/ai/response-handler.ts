@@ -1,86 +1,104 @@
+// src/core/ai/response-handler.ts
 export class ResponseHandler {
   static async parseResponse(response: string): Promise<any> {
     try {
-      // Enhanced JSON extraction with error positions
-      const jsonMatch = response.match(/(\{[\s\S]*\})/);
+      // Improved JSON extraction with error recovery
+      const jsonMatch = response.match(/(\{[\s\S]*?})(?=\s*(?:$|\n))/);
       if (!jsonMatch) throw new Error("NO_JSON_FOUND");
 
       let jsonStr = jsonMatch[1]
-        // Fix common LLM formatting errors
-        .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3') // Unquoted keys
-        .replace(/'/g, '"') // Single quotes to double
-        .replace(/(\w+)\s*:/g, '"$1":') // Ensure key quoting
-        .replace(/,\s*}/g, "}") // Trailing commas in objects
-        .replace(/,\s*]/g, "]") // Trailing commas in arrays
-        .replace(/(\})\s*(\")/g, "$1,$2") // Missing commas
-        .replace(/(\n\s*)(\")/g, "$1  $2"); // Improve indentation
-
-      // Balance braces automatically
-      const openBraces = (jsonStr.match(/{/g) || []).length;
-      const closeBraces = (jsonStr.match(/}/g) || []).length;
-      if (openBraces > closeBraces) {
-        jsonStr += "}".repeat(openBraces - closeBraces);
-      }
-
-      // Parse with detailed error reporting
-      try {
-        return JSON.parse(jsonStr);
-      } catch (parseError: any) {
-        console.error(`JSON Parse Error at position ${parseError.position}:`);
-        console.error(
-          jsonStr.slice(
-            Math.max(0, parseError.position - 50),
-            parseError.position + 50
-          )
+        .replace(/(['"])?([a-z0-9A-Z_]+)(['"])?\s*:/g, '"$2":')
+        .replace(/'/g, '"')
+        .replace(/\\"/g, '"')
+        .replace(
+          /(:\s*")([^"]*?)(\s*[},\]])/g,
+          (_, p1, p2, p3) => `${p1}${p2.replace(/\n/g, "\\n")}"${p3}`
         );
-        throw parseError;
-      }
-    } catch (error: any) {
-      console.error("Enhanced JSON parsing failed:", error.message);
-      throw new Error(`Failed to parse LLM response: ${error.message}`);
+
+      // Balance JSON structure
+      jsonStr = this.balanceJsonStructure(jsonStr);
+
+      return JSON.parse(jsonStr);
+    } catch (error) {
+      console.error("Enhanced parsing failed. Salvaging partial data...");
+      return this.salvageEssentialFields(response);
     }
   }
 
-  private static normalizeSpec(rawSpec: any) {
-    // Add framework detection based on dependencies
-    const detectFramework = () => {
-      if (rawSpec.dependencies?.react) return "react";
-      if (rawSpec.dependencies?.vue) return "vue";
-      return "react"; // default
-    };
+  private static balanceJsonStructure(jsonStr: string): string {
+    // Balance braces
+    const braceDiff =
+      (jsonStr.match(/{/g) || []).length - (jsonStr.match(/}/g) || []).length;
+    if (braceDiff > 0) jsonStr += "}".repeat(braceDiff);
 
-    return {
-      name:
-        rawSpec.name?.replace(/\s+/g, "-").toLowerCase() ||
-        "ecommerce-platform",
-      type: rawSpec.type || "fullstack",
-      framework: rawSpec.framework || detectFramework(),
-      packageManager: rawSpec.packageManager || "npm",
-      files: this.normalizeFiles(rawSpec.files),
-      dependencies: rawSpec.dependencies || {},
-      devDependencies: rawSpec.devDependencies || {},
-      scripts: this.normalizeScripts(rawSpec.scripts),
-      postInstall: rawSpec.postInstall || [],
-    };
+    // Balance brackets
+    const bracketDiff =
+      (jsonStr.match(/\[/g) || []).length - (jsonStr.match(/\]/g) || []).length;
+    if (bracketDiff > 0) jsonStr += "]".repeat(bracketDiff);
+
+    return jsonStr;
   }
 
-  private static normalizeFiles(files: any) {
-    const normalized: Record<string, any> = {};
-    for (const [path, content] of Object.entries(files || {})) {
-      const cleanPath = path
-        .replace(/\\/g, "/") // POSIX paths
-        .replace(/^\/+/, ""); // Remove leading slashes
-      normalized[cleanPath] = content;
+  private static salvageEssentialFields(rawResponse: string): any {
+    const fallbackSpec = {
+      name: "default-project",
+      type: "frontend",
+      framework: "nextjs",
+      packageManager: "npm",
+      dependencies: {},
+      devDependencies: {},
+      files: {},
+    };
+
+    try {
+      // Extract critical fields with regex
+      return {
+        name: this.extractField(rawResponse, "name") || fallbackSpec.name,
+        type: this.extractField(rawResponse, "type") || fallbackSpec.type,
+        framework:
+          this.extractField(rawResponse, "framework") || fallbackSpec.framework,
+        packageManager:
+          this.extractField(rawResponse, "packageManager") ||
+          fallbackSpec.packageManager,
+        dependencies: this.extractObject(rawResponse, "dependencies"),
+        devDependencies: this.extractObject(rawResponse, "devDependencies"),
+        files: this.extractFiles(rawResponse),
+      };
+    } catch (error) {
+      return fallbackSpec;
     }
-    return normalized;
   }
 
-  private static normalizeScripts(scripts: any) {
-    const defaults = {
-      start: "react-scripts start",
-      build: "react-scripts build",
-      test: "react-scripts test",
-    };
-    return { ...defaults, ...(scripts || {}) };
+  private static extractField(response: string, field: string): string | null {
+    const regex = new RegExp(`"${field}"\\s*:\\s*"([^"]+)"`);
+    const match = response.match(regex);
+    return match?.[1] || null;
+  }
+
+  private static extractObject(response: string, field: string): object {
+    const regex = new RegExp(`"${field}"\\s*:\\s*({[^}]+})`);
+    const match = response.match(regex);
+    try {
+      return match ? JSON.parse(match[1]) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private static extractFiles(response: string): Record<string, string> {
+    const filesRegex = /"files"\s*:\s*({[\s\S]+?})(?=\s*(?:,|}|$))/;
+    const match = response.match(filesRegex);
+
+    if (!match) return {};
+
+    try {
+      return JSON.parse(
+        match[1]
+          .replace(/"([^"]+)":\s*"([^"]*)"/g, '"$1": "$2"')
+          .replace(/\n/g, "\\n")
+      );
+    } catch {
+      return {};
+    }
   }
 }

@@ -13,8 +13,11 @@ const CORE_FILES = [
 ];
 
 export async function generateProject(projectSpec: ProjectSpec) {
-  const basePath = path.resolve(process.cwd(), "generated-project");
-
+  const basePath = path.resolve(
+    process.cwd(),
+    "generated-projects",
+    projectSpec.name.toLowerCase().replace(/ /g, "-")
+  );
   // Clear existing directory
   await fs.emptyDir(basePath);
 

@@ -4,7 +4,11 @@ import path from "path";
 import { ProjectSpec } from "../../core/models/project-spec";
 
 async function generateProjectFiles(spec: ProjectSpec) {
-  const projectPath = path.resolve(process.cwd(), "generated-project");
+  const projectPath = path.resolve(
+    process.cwd(),
+    "generated-projects",
+    spec.name.toLowerCase().replace(/ /g, "-")
+  );
 
   // Create project directory
   await fs.ensureDir(projectPath);

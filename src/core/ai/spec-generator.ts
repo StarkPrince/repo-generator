@@ -5,13 +5,11 @@ import { ResponseHandler } from "./response-handler";
 // src/core/ai/spec-generator.ts
 export class SpecGenerator {
   private readonly SYSTEM_PROMPT = `You MUST generate COMPLETE project specs with:
-  1. Required package.json fields (name, scripts, dependencies)
-  2. Full file structure for the specified framework
-  3. OS-agnostic POSIX paths (use forward slashes)
-  4. All object keys in double quotes
-  5. Proper commas between entries
-  6. Complete JSON structure
-  7. Actual file content (not descriptions)
+  1. Return COMPLETE JSON with ALL closing braces
+  2. Escape quotes in file content
+  3. Ensure valid JSON syntax
+  4. Include full file paths with POSIX format
+  5. Validate JSON before responding
   
   Example Response:
   {
