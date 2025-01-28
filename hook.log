@@ -1,5 +1,5 @@
 Hook triggered
 Message file: .git/COMMIT_EDITMSG
 Captured Git username: Starkprince
-Captured message: handling stream responses gracefully 
-Logged commit: 1989047
+Captured message: a little bit better handling of json 
+Logged commit: 9c4abae
